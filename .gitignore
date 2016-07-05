@@ -38,6 +38,7 @@
 
 # new intellisense db
 *.VC.db
+*.VC.VC.opendb
 
 
 # Precompiled Assets

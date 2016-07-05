@@ -2,6 +2,7 @@
 
 #include "MeleeGame.h"
 #include "MGCharacter.h"
+#include "Kismet/KismetMathLibrary.h"
 
 
 // Sets default values
@@ -29,6 +30,9 @@ AMGCharacter::AMGCharacter()
 	FollowCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName); // Attach the camera to the end of the boom and let the boom adjust to match the controller orientation
 	FollowCamera->bUsePawnControlRotation = false; // Camera does not rotate relative to arm
 
+	EyesArrow = CreateDefaultSubobject<UArrowComponent>(TEXT("EyesArrow"));
+	EyesArrow->SetupAttachment(RootComponent);
+	EyesArrow->SetRelativeLocation(FVector::FVector(0.0f, 0.0f, 50.0f));
 
 }
 
@@ -36,14 +40,23 @@ AMGCharacter::AMGCharacter()
 void AMGCharacter::BeginPlay()
 {
 	Super::BeginPlay();
-	
+
 }
 
 // Called every frame
-void AMGCharacter::Tick( float DeltaTime )
+void AMGCharacter::Tick(float DeltaTime)
 {
-	Super::Tick( DeltaTime );
+	Super::Tick(DeltaTime);
 
+	if (bIsFocusing)
+	{
+		if (LastTimeLookedTimer > LookAndMoveTimerThreshold)
+		{
+			Controller->SetControlRotation(FMath::RInterpTo(Controller->GetControlRotation(), GetCurrentFocusingDirection(), DeltaTime, 2.0f));
+		}
+	}
+	LastTimeLookedTimer += DeltaTime;
+	LastTimeMovedTimer += DeltaTime;
 }
 
 // Called to bind functionality to input
@@ -54,6 +67,9 @@ void AMGCharacter::SetupPlayerInputComponent(class UInputComponent* InputCompone
 	check(InputComponent);
 	InputComponent->BindAction("Jump", IE_Pressed, this, &ACharacter::Jump);
 	InputComponent->BindAction("Jump", IE_Released, this, &ACharacter::StopJumping);
+
+	InputComponent->BindAction("Focus", IE_Pressed, this, &AMGCharacter::OnFocusButton);
+
 
 	InputComponent->BindAxis("MoveForward", this, &AMGCharacter::MoveForward);
 	InputComponent->BindAxis("MoveRight", this, &AMGCharacter::MoveRight);
@@ -73,13 +89,24 @@ void AMGCharacter::MoveForward(float Value)
 {
 	if ((Controller != NULL) && (Value != 0.0f))
 	{
-		// find out which way is forward
-		const FRotator Rotation = Controller->GetControlRotation();
-		const FRotator YawRotation(0, Rotation.Yaw, 0);
+		if (bIsFocusing)
+		{
+			// use focus direction as forward
+			const FRotator YawRotation(0, GetCurrentFocusingDirection().Yaw, 0);
+			const FVector Direction = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X);
+			AddMovementInput(Direction, Value);
+		}
+		else
+		{
+			// find out which way is forward
+			const FRotator Rotation = Controller->GetControlRotation();
+			const FRotator YawRotation(0, Rotation.Yaw, 0);
 
-		// get forward vector
-		const FVector Direction = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X);
-		AddMovementInput(Direction, Value);
+			// get forward vector
+			const FVector Direction = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X);
+			AddMovementInput(Direction, Value);
+		}
+		LastTimeMovedTimer = 0.f;
 	}
 }
 
@@ -88,42 +115,120 @@ void AMGCharacter::MoveRight(float Value)
 {
 	if ((Controller != NULL) && (Value != 0.0f))
 	{
-		// find out which way is right
-		const FRotator Rotation = Controller->GetControlRotation();
-		const FRotator YawRotation(0, Rotation.Yaw, 0);
+		if (bIsFocusing)
+		{
+			// use focused direction as forward
+			const FRotator YawRotation(0, GetCurrentFocusingDirection().Yaw, 0);
+			const FVector Direction = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y);
+			AddMovementInput(Direction, Value);
+		}
+		else
+		{
+			// find out which way is right
+			const FRotator Rotation = Controller->GetControlRotation();
+			const FRotator YawRotation(0, Rotation.Yaw, 0);
 
-		// get right vector 
-		const FVector Direction = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y);
-		// add movement in that direction
-		AddMovementInput(Direction, Value);
+			// get right vector 
+			const FVector Direction = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y);
+			// add movement in that direction
+			AddMovementInput(Direction, Value);
+		}
+		LastTimeMovedTimer = 0.f;
 	}
 }
 
 
 void AMGCharacter::LookUpRate(float Value)
 {
-	AddControllerPitchInput(Value * GetWorld()->GetDeltaSeconds());
+	if (Value != 0.0f)
+	{
+		if (bIsFocusing)
+		{
+			AddControllerPitchInput(FocusingLookRateMultiplier * Value * GetWorld()->GetDeltaSeconds());
+		}
+		else
+		{
+			AddControllerPitchInput(Value * GetWorld()->GetDeltaSeconds());
+		}
+		LastTimeLookedTimer = 0.f;
+	}
 }
 
 
 void AMGCharacter::LookRightRate(float Value)
 {
-	AddControllerYawInput(Value * GetWorld()->GetDeltaSeconds());
+	if (Value != 0.0f)
+	{
+		if (bIsFocusing)
+		{
+			AddControllerYawInput(FocusingLookRateMultiplier * Value * GetWorld()->GetDeltaSeconds());
+		}
+		else
+		{
+			AddControllerYawInput(Value * GetWorld()->GetDeltaSeconds());
+		}
+		LastTimeLookedTimer = 0.f;
+	}
+}
+
+
+void AMGCharacter::OnFocusButton()
+{
+	if (bIsFocusing)
+	{
+		SetFocus(false, nullptr);
+	}
+	else
+	{
+		FHitResult f(ForceInit);
+		FVector start = GetActorLocation();
+		FVector direction = Controller->GetControlRotation().Vector();
+		FCollisionQueryParams  params = FCollisionQueryParams(FName(TEXT("FocusTrace")), true, NULL);
+		params.bTraceAsyncScene = true;
+		start = start + (direction * 100.0f);
+		FVector end = start + (direction * 2000.0f);
+		GetWorld()->LineTraceSingleByChannel(f, start, end, ECC_Visibility, params);
+		if (debug)
+			GetWorld()->DebugDrawTraceTag = TEXT("FocusTrace");
+		SetFocus(true, f.GetActor());
+	}
 }
 
 
 void AMGCharacter::SetFocus(bool DoFocus, AActor* FocalPoint)
 {
-	if (DoFocus) {
-		if (FocalPoint) {
-
+	if (DoFocus)
+	{
+		bIsFocusing = true;
+		if (FocalPoint == nullptr)
+		{
+			FocusedDirection = GetControlRotation();
+			FocusedActor = nullptr;
 		}
-		else {
-
+		else
+		{
+			FocusedDirection = FRotator::ZeroRotator;
+			FocusedActor = FocalPoint;
 		}
 	}
-	else {
+	else
+	{
+		bIsFocusing = false;
+		FocusedDirection = FRotator::ZeroRotator;
+		FocusedActor = nullptr;
+	}
+}
 
+
+FRotator AMGCharacter::GetCurrentFocusingDirection()
+{
+	if (FocusedActor != nullptr)
+	{
+		return UKismetMathLibrary::FindLookAtRotation(EyesArrow->GetComponentLocation(), FocusedActor->GetActorLocation());;
+	}
+	else
+	{
+		return FocusedDirection;
 	}
 }
 

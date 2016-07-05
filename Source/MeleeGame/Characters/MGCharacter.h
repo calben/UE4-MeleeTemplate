@@ -24,17 +24,44 @@ public:
 	virtual void SetupPlayerInputComponent(class UInputComponent* InputComponent) override;
 
 	UPROPERTY(BlueprintReadWrite, EditAnywhere)
-		float Health;
+		float Health = 100.0f;
 
 	UPROPERTY(BlueprintReadWrite, EditAnywhere)
-		bool bIsDead;
+		bool bIsDead = false;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = Camera)
 		class USpringArmComponent* CameraBoom;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = Camera)
 		class UCameraComponent* FollowCamera;
-	
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite, Category = Camera)
+		class UArrowComponent* EyesArrow;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite)
+		AActor* FocusedActor;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite)
+		FRotator FocusedDirection;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite)
+		bool bIsFocusing;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite)
+		float FocusingLookRateMultiplier = 0.5;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite)
+		float LastTimeLookedTimer;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite)
+		float LastTimeMovedTimer;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite)
+		float LookAndMoveTimerThreshold;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite)
+		bool debug = true;
+
 	void MoveForward(float Value);
 
 	void MoveRight(float Value);
@@ -43,6 +70,10 @@ public:
 
 	void LookRightRate(float Value);
 
+	void OnFocusButton();
+
 	void SetFocus(bool DoFocus, AActor* FocalPoint);
+
+	FRotator GetCurrentFocusingDirection();
 	
 };

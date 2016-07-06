@@ -65,6 +65,9 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite)
 		bool debug = true;
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite)
+		bool bIsDefending = false;
+
 	void MoveForward(float Value);
 
 	void MoveRight(float Value);
@@ -76,6 +79,10 @@ public:
 	void OnFocusButton();
 
 	void SetFocus(bool DoFocus, AActor* FocalPoint);
+
+	void OnDefendPressed();
+
+	void OnDefendReleased();
 
 	// for if the character is sidestepping
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = Movement)

@@ -73,6 +73,8 @@ void AMGCharacter::SetupPlayerInputComponent(class UInputComponent* InputCompone
 
 	InputComponent->BindAction("Focus", IE_Pressed, this, &AMGCharacter::OnFocusButton);
 
+	InputComponent->BindAction("Defend", IE_Pressed, this, &AMGCharacter::OnDefendPressed);
+	InputComponent->BindAction("Defend", IE_Released, this, &AMGCharacter::OnDefendReleased);
 
 	InputComponent->BindAxis("MoveForward", this, &AMGCharacter::MoveForward);
 	InputComponent->BindAxis("MoveRight", this, &AMGCharacter::MoveRight);
@@ -84,7 +86,6 @@ void AMGCharacter::SetupPlayerInputComponent(class UInputComponent* InputCompone
 	InputComponent->BindAxis("TurnRate", this, &AMGCharacter::LookRightRate);
 	InputComponent->BindAxis("LookUp", this, &APawn::AddControllerPitchInput);
 	InputComponent->BindAxis("LookUpRate", this, &AMGCharacter::LookUpRate);
-
 }
 
 
@@ -171,9 +172,16 @@ void AMGCharacter::LookRightRate(float Value)
 
 float AMGCharacter::GetCharacterMovementAngle()
 {
-	FRotator delta = UKismetMathLibrary::MakeRotFromXY(GetVelocity(), GetVelocity()) -
-		Controller->GetControlRotation();
-	return delta.Yaw;
+	if (bIsFocusing)
+	{
+		FRotator delta = UKismetMathLibrary::MakeRotFromXY(GetVelocity(), GetVelocity()) -
+			Controller->GetControlRotation();
+		return delta.Yaw;
+	}
+	else
+	{
+		return 0.0f;
+	}
 }
 
 float AMGCharacter::GetCharacterMovementSpeed()
@@ -207,6 +215,17 @@ void AMGCharacter::OnFocusButton()
 	}
 }
 
+void AMGCharacter::OnDefendPressed()
+{
+	bIsDefending = true;
+	Controller->SetIgnoreMoveInput(true);
+}
+
+void AMGCharacter::OnDefendReleased()
+{
+	bIsDefending = false;
+	Controller->SetIgnoreMoveInput(false);
+}
 
 void AMGCharacter::SetFocus(bool DoFocus, AActor* FocalPoint)
 {

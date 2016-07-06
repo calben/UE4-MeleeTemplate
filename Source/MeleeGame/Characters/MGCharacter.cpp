@@ -171,7 +171,7 @@ void AMGCharacter::LookRightRate(float Value)
 
 float AMGCharacter::GetCharacterMovementAngle()
 {
-	FRotator delta = GetVelocity().Rotation() - 
+	FRotator delta = UKismetMathLibrary::MakeRotFromXY(GetVelocity(), GetVelocity()) -
 		Controller->GetControlRotation();
 	return delta.Yaw;
 }

@@ -51,6 +51,9 @@ public:
 		float FocusingLookRateMultiplier = 0.5;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite)
+		float FocusingMoveRateMultiplier = 0.5;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite)
 		float LastTimeLookedTimer;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite)
@@ -73,6 +76,16 @@ public:
 	void OnFocusButton();
 
 	void SetFocus(bool DoFocus, AActor* FocalPoint);
+
+	// for if the character is sidestepping
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = Movement)
+		float GetCharacterMovementAngle();
+
+	// calculate real velocity of the player
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = Movement)
+		float GetCharacterMovementSpeed();
+
+	FHitResult GetTraceFromCamera();
 
 	FRotator GetCurrentFocusingDirection();
 	

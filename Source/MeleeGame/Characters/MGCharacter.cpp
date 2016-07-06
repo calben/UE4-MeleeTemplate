@@ -52,7 +52,10 @@ void AMGCharacter::Tick(float DeltaTime)
 	{
 		if (LastTimeLookedTimer > LookAndMoveTimerThreshold)
 		{
-			Controller->SetControlRotation(FMath::RInterpTo(Controller->GetControlRotation(), GetCurrentFocusingDirection(), DeltaTime, 2.0f));
+			if (LastTimeMovedTimer > 0.5)
+				Controller->SetControlRotation(FMath::RInterpTo(Controller->GetControlRotation(), GetCurrentFocusingDirection(), DeltaTime, 2.0f));
+			else
+				Controller->SetControlRotation(FMath::RInterpTo(Controller->GetControlRotation(), GetCurrentFocusingDirection(), DeltaTime, 5.0f));
 		}
 	}
 	LastTimeLookedTimer += DeltaTime;
@@ -89,23 +92,20 @@ void AMGCharacter::MoveForward(float Value)
 {
 	if ((Controller != NULL) && (Value != 0.0f))
 	{
+		FVector Direction;
 		if (bIsFocusing)
 		{
 			// use focus direction as forward
 			const FRotator YawRotation(0, GetCurrentFocusingDirection().Yaw, 0);
-			const FVector Direction = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X);
-			AddMovementInput(Direction, Value);
+			Direction = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X);
 		}
 		else
 		{
-			// find out which way is forward
-			const FRotator Rotation = Controller->GetControlRotation();
-			const FRotator YawRotation(0, Rotation.Yaw, 0);
-
-			// get forward vector
-			const FVector Direction = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X);
-			AddMovementInput(Direction, Value);
+			// use camera based right
+			const FRotator YawRotation(0, Controller->GetControlRotation().Yaw, 0);
+			Direction = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X);
 		}
+		AddMovementInput(Direction, Value);
 		LastTimeMovedTimer = 0.f;
 	}
 }
@@ -115,24 +115,21 @@ void AMGCharacter::MoveRight(float Value)
 {
 	if ((Controller != NULL) && (Value != 0.0f))
 	{
+		FVector Direction;
 		if (bIsFocusing)
 		{
 			// use focused direction as forward
 			const FRotator YawRotation(0, GetCurrentFocusingDirection().Yaw, 0);
-			const FVector Direction = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y);
-			AddMovementInput(Direction, Value);
+			Direction = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y);
 		}
 		else
 		{
-			// find out which way is right
-			const FRotator Rotation = Controller->GetControlRotation();
-			const FRotator YawRotation(0, Rotation.Yaw, 0);
+			// use camera based right
+			const FRotator YawRotation(0, Controller->GetControlRotation().Yaw, 0);
 
-			// get right vector 
-			const FVector Direction = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y);
-			// add movement in that direction
-			AddMovementInput(Direction, Value);
+			Direction = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y);
 		}
+		AddMovementInput(Direction, Value);
 		LastTimeMovedTimer = 0.f;
 	}
 }
@@ -172,6 +169,32 @@ void AMGCharacter::LookRightRate(float Value)
 }
 
 
+float AMGCharacter::GetCharacterMovementAngle()
+{
+	FRotator delta = GetVelocity().Rotation() - 
+		Controller->GetControlRotation();
+	return delta.Yaw;
+}
+
+float AMGCharacter::GetCharacterMovementSpeed()
+{
+	return GetVelocity().Size();
+}
+
+FHitResult AMGCharacter::GetTraceFromCamera()
+{
+	FHitResult f(ForceInit);
+	FVector start = FollowCamera->GetComponentLocation();
+	FVector direction = Controller->GetControlRotation().Vector();
+	FCollisionQueryParams  params = FCollisionQueryParams(FName(TEXT("FocusTrace")), true, NULL);
+	params.bTraceAsyncScene = true;
+	start = start + (direction * 100.0f);
+	FVector end = start + (direction * 2000.0f);
+	GetWorld()->LineTraceSingleByChannel(f, start, end, ECC_Visibility, params);
+	return f;
+}
+
+
 void AMGCharacter::OnFocusButton()
 {
 	if (bIsFocusing)
@@ -180,17 +203,7 @@ void AMGCharacter::OnFocusButton()
 	}
 	else
 	{
-		FHitResult f(ForceInit);
-		FVector start = GetActorLocation();
-		FVector direction = Controller->GetControlRotation().Vector();
-		FCollisionQueryParams  params = FCollisionQueryParams(FName(TEXT("FocusTrace")), true, NULL);
-		params.bTraceAsyncScene = true;
-		start = start + (direction * 100.0f);
-		FVector end = start + (direction * 2000.0f);
-		GetWorld()->LineTraceSingleByChannel(f, start, end, ECC_Visibility, params);
-		if (debug)
-			GetWorld()->DebugDrawTraceTag = TEXT("FocusTrace");
-		SetFocus(true, f.GetActor());
+		SetFocus(true, GetTraceFromCamera().GetActor());
 	}
 }
 
@@ -210,12 +223,14 @@ void AMGCharacter::SetFocus(bool DoFocus, AActor* FocalPoint)
 			FocusedDirection = FRotator::ZeroRotator;
 			FocusedActor = FocalPoint;
 		}
+		bUseControllerRotationYaw = true;
 	}
 	else
 	{
 		bIsFocusing = false;
 		FocusedDirection = FRotator::ZeroRotator;
 		FocusedActor = nullptr;
+		bUseControllerRotationYaw = false;
 	}
 }
 

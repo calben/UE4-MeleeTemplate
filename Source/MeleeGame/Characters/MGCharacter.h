@@ -3,6 +3,7 @@
 #pragma once
 
 #include "GameFramework/Character.h"
+#include "Utils/MeleeAttackUtils.h"
 #include "MGCharacter.generated.h"
 
 UCLASS()
@@ -68,6 +69,12 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite)
 		bool bIsDefending = false;
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadWrite)
+		bool bIsCombatAnimating = false;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+		FCombatAnimationStruct PrimaryAttack;
+
 	void MoveForward(float Value);
 
 	void MoveRight(float Value);
@@ -83,6 +90,8 @@ public:
 	void OnDefendPressed();
 
 	void OnDefendReleased();
+
+	void OnPrimaryAttackPressed();
 
 	// for if the character is sidestepping
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = Movement)

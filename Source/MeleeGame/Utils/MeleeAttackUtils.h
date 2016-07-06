@@ -6,15 +6,18 @@
 #include "MeleeAttackUtils.generated.h"
 
 USTRUCT()
-struct FAttackAnimationStruct
+struct FCombatAnimationStruct
 {
 	GENERATED_BODY()
 
 		UPROPERTY(EditAnywhere, BlueprintReadWrite)
-		UAnimSequence* animation;
+		UAnimSequence* Animation;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
-		float damage;
+		float DamageOnHit;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+		float DamagReduction;
 };
 
 /**

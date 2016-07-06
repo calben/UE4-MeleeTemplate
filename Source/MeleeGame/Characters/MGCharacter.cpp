@@ -192,7 +192,7 @@ float AMGCharacter::GetCharacterMovementSpeed()
 FHitResult AMGCharacter::GetTraceFromCamera()
 {
 	FHitResult f(ForceInit);
-	FVector start = FollowCamera->GetComponentLocation();
+	FVector start = FollowCamera->GetComponentLocation() + FVector::FVector(0.0f, 20.0f, 0.0f);
 	FVector direction = Controller->GetControlRotation().Vector();
 	FCollisionQueryParams  params = FCollisionQueryParams(FName(TEXT("FocusTrace")), true, NULL);
 	params.bTraceAsyncScene = true;
@@ -225,6 +225,12 @@ void AMGCharacter::OnDefendReleased()
 {
 	bIsDefending = false;
 	Controller->SetIgnoreMoveInput(false);
+}
+
+void AMGCharacter::OnPrimaryAttackPressed()
+{
+	bIsCombatAnimating = true;
+	Controller->SetIgnoreMoveInput(true);
 }
 
 void AMGCharacter::SetFocus(bool DoFocus, AActor* FocalPoint)

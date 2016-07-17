@@ -33,7 +33,6 @@ AMGCharacter::AMGCharacter()
 	EyesArrow = CreateDefaultSubobject<UArrowComponent>(TEXT("EyesArrow"));
 	EyesArrow->SetupAttachment(RootComponent);
 	EyesArrow->SetRelativeLocation(FVector::FVector(0.0f, 0.0f, 50.0f));
-
 }
 
 // Called when the game starts or when spawned
@@ -53,9 +52,11 @@ void AMGCharacter::Tick(float DeltaTime)
 		if (LastTimeLookedTimer > LookAndMoveTimerThreshold)
 		{
 			if (LastTimeMovedTimer > 0.5)
-				Controller->SetControlRotation(FMath::RInterpTo(Controller->GetControlRotation(), GetCurrentFocusingDirection(), DeltaTime, 2.0f));
+				Controller->SetControlRotation(FMath::RInterpTo(Controller->GetControlRotation(),
+					GetCurrentFocusingDirection(), DeltaTime, 2.0f));
 			else
-				Controller->SetControlRotation(FMath::RInterpTo(Controller->GetControlRotation(), GetCurrentFocusingDirection(), DeltaTime, 5.0f));
+				Controller->SetControlRotation(FMath::RInterpTo(Controller->GetControlRotation(),
+					GetCurrentFocusingDirection(), DeltaTime, 10.0f));
 		}
 	}
 	LastTimeLookedTimer += DeltaTime;
@@ -75,6 +76,8 @@ void AMGCharacter::SetupPlayerInputComponent(class UInputComponent* InputCompone
 
 	InputComponent->BindAction("Defend", IE_Pressed, this, &AMGCharacter::OnDefendPressed);
 	InputComponent->BindAction("Defend", IE_Released, this, &AMGCharacter::OnDefendReleased);
+
+	InputComponent->BindAction("PrimaryAttack", IE_Pressed, this, &AMGCharacter::OnPrimaryAttackPressed);
 
 	InputComponent->BindAxis("MoveForward", this, &AMGCharacter::MoveForward);
 	InputComponent->BindAxis("MoveRight", this, &AMGCharacter::MoveRight);
@@ -176,7 +179,9 @@ float AMGCharacter::GetCharacterMovementAngle()
 	{
 		FRotator delta = UKismetMathLibrary::MakeRotFromXY(GetVelocity(), GetVelocity()) -
 			Controller->GetControlRotation();
-		return delta.Yaw;
+		float angle = delta.Yaw;
+		// clamp it so that backwards is never quite triggered
+		return FMath::Clamp(angle, -179.0f, 179.0f);
 	}
 	else
 	{
@@ -189,16 +194,22 @@ float AMGCharacter::GetCharacterMovementSpeed()
 	return GetVelocity().Size();
 }
 
+bool AMGCharacter::GetCharacterJumping()
+{
+	return GetVelocity().Z ? true : false;
+}
+
 FHitResult AMGCharacter::GetTraceFromCamera()
 {
 	FHitResult f(ForceInit);
-	FVector start = FollowCamera->GetComponentLocation() + FVector::FVector(0.0f, 20.0f, 0.0f);
+	FVector start = FollowCamera->GetComponentLocation();
 	FVector direction = Controller->GetControlRotation().Vector();
 	FCollisionQueryParams  params = FCollisionQueryParams(FName(TEXT("FocusTrace")), true, NULL);
 	params.bTraceAsyncScene = true;
 	start = start + (direction * 100.0f);
 	FVector end = start + (direction * 2000.0f);
 	GetWorld()->LineTraceSingleByChannel(f, start, end, ECC_Visibility, params);
+	GetWorld()->DebugDrawTraceTag = "FocusTrace";
 	return f;
 }
 
@@ -229,8 +240,9 @@ void AMGCharacter::OnDefendReleased()
 
 void AMGCharacter::OnPrimaryAttackPressed()
 {
-	bIsCombatAnimating = true;
-	Controller->SetIgnoreMoveInput(true);
+	UE_LOG(LogTemp, Warning, TEXT("Primary Attacking"));
+	float duration = PlayCombatAnimation(PrimaryAttack);
+	GetWorldTimerManager().SetTimer(TimerHandle_OnCombatAnimationFinished, this, &AMGCharacter::StopCurrentCombatAnimation, duration, false);
 }
 
 void AMGCharacter::SetFocus(bool DoFocus, AActor* FocalPoint)
@@ -270,5 +282,29 @@ FRotator AMGCharacter::GetCurrentFocusingDirection()
 	{
 		return FocusedDirection;
 	}
+}
+
+
+float AMGCharacter::PlayCombatAnimation(const FCombatAnimationStruct Animation)
+{
+	if (!Animation.Animation)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("NULL ANIMATION"));
+		return 0.0f;
+	}
+	bIsCombatAnimating = true;
+	PlayingAnimation = Animation;
+	Controller->SetIgnoreMoveInput(true);
+	PlayAnimMontage(Animation.Animation, Animation.AnimationSpeed);
+	return Animation.Animation->GetPlayLength() / Animation.AnimationSpeed;
+}
+
+void AMGCharacter::StopCurrentCombatAnimation()
+{
+	UE_LOG(LogTemp, Warning, TEXT("FINISHED COMBAT ANIMATION"));
+	bIsCombatAnimating = false;
+	Controller->SetIgnoreMoveInput(false);
+	StopAnimMontage(PlayingAnimation.Animation);
+	GetMesh()->SetAnimationMode(EAnimationMode::AnimationBlueprint);
 }
 

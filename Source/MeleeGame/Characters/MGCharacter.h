@@ -3,8 +3,25 @@
 #pragma once
 
 #include "GameFramework/Character.h"
-#include "Utils/MeleeAttackUtils.h"
 #include "MGCharacter.generated.h"
+
+USTRUCT()
+struct FCombatAnimationStruct
+{
+	GENERATED_BODY()
+
+		UPROPERTY(EditAnywhere, BlueprintReadWrite)
+		UAnimMontage* Animation;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+		float DamageOnHit = 20.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+		float DamagReduction = 0.0f;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite)
+		float AnimationSpeed = 1.0f;
+};
 
 UCLASS()
 class MELEEGAME_API AMGCharacter : public ACharacter
@@ -72,8 +89,29 @@ public:
 	UPROPERTY(VisibleAnywhere, BlueprintReadWrite)
 		bool bIsCombatAnimating = false;
 
+
+	////
+	// ANIMATIONS
+	//// 
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite)
 		FCombatAnimationStruct PrimaryAttack;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
+		FCombatAnimationStruct PlayingAnimation;
+
+
+	////
+	// TIMERS
+	////
+
+
+	FTimerHandle TimerHandle_OnCombatAnimationFinished;
+
+
+	////
+	// ACTIONS
+	////
 
 	void MoveForward(float Value);
 
@@ -93,7 +131,18 @@ public:
 
 	void OnPrimaryAttackPressed();
 
-	// for if the character is sidestepping
+	float PlayCombatAnimation(const FCombatAnimationStruct Animation);
+
+	void StopCurrentCombatAnimation();
+
+	void EquipItem(USkeletalMeshComponent* item);
+
+
+	////
+	// HELPER FUNCTIONS
+	//// 
+
+	// check if the character is sidestepping
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = Movement)
 		float GetCharacterMovementAngle();
 
@@ -101,8 +150,11 @@ public:
 	UFUNCTION(BlueprintCallable, BlueprintPure, Category = Movement)
 		float GetCharacterMovementSpeed();
 
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = Movement)
+		bool GetCharacterJumping();
+
 	FHitResult GetTraceFromCamera();
 
 	FRotator GetCurrentFocusingDirection();
-	
+
 };
